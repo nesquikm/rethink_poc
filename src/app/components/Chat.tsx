@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-type AIProvider = 'openai' | 'gemini';
+type AIProvider = 'gpt-3.5-turbo' | 'gpt-4o-mini' | 'gemini';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -53,10 +53,11 @@ export default function Chat() {
       const data = await response.json();
 
       if (response.ok) {
-        // Add both AI responses to chat history
+        // Add all AI responses to chat history
         setChatHistory([
           ...updatedHistory,
-          { role: 'assistant', content: data.openai, provider: 'openai' },
+          { role: 'assistant', content: data['gpt-3.5-turbo'], provider: 'gpt-3.5-turbo' },
+          { role: 'assistant', content: data['gpt-4o-mini'], provider: 'gpt-4o-mini' },
           { role: 'assistant', content: data.gemini, provider: 'gemini' }
         ]);
       } else {
@@ -85,16 +86,25 @@ export default function Chat() {
 
   // Helper function to get provider badge color
   const getProviderColor = (provider?: AIProvider) => {
-    if (provider === 'openai') return 'bg-green-500';
+    if (provider === 'gpt-3.5-turbo') return 'bg-green-500';
+    if (provider === 'gpt-4o-mini') return 'bg-purple-500';
     if (provider === 'gemini') return 'bg-blue-500';
     return '';
+  };
+
+  // Helper function to get provider display name
+  const getProviderDisplayName = (provider?: AIProvider) => {
+    if (provider === 'gpt-3.5-turbo') return 'GPT-3.5';
+    if (provider === 'gpt-4o-mini') return 'GPT-4o-mini';
+    if (provider === 'gemini') return 'GEMINI';
+    return provider || '';
   };
 
   return (
     <div className="w-full max-w-2xl mx-auto p-4 bg-white dark:bg-black rounded-lg shadow">
       <div
         ref={chatContainerRef}
-        className="h-[500px] overflow-y-auto mb-4 p-4 border border-gray-200 dark:border-gray-800 rounded"
+        className="h-[600px] overflow-y-auto mb-4 p-4 border border-gray-200 dark:border-gray-800 rounded"
       >
         {chatHistory.length === 0 ? (
           <div className="text-center text-gray-500 dark:text-gray-400 h-full flex items-center justify-center">
@@ -112,7 +122,7 @@ export default function Chat() {
             >
               {msg.provider && (
                 <div className={`text-xs text-white px-2 py-0.5 rounded mb-1 inline-block ${getProviderColor(msg.provider)}`}>
-                  {msg.provider.toUpperCase()}
+                  {getProviderDisplayName(msg.provider)}
                 </div>
               )}
               <p className="text-sm">{msg.content}</p>
@@ -123,7 +133,8 @@ export default function Chat() {
           <div className="text-center text-gray-500 dark:text-gray-400">
             <p>Thinking...</p>
             <div className="flex justify-center gap-2 mt-2">
-              <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded">OpenAI</span>
+              <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded">GPT-3.5</span>
+              <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs rounded">GPT-4o-mini</span>
               <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded">Gemini</span>
             </div>
           </div>

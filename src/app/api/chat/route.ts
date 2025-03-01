@@ -62,14 +62,16 @@ export async function POST(req: Request) {
       }
     ];
 
-    // Make requests to both APIs in parallel
-    const [openaiResponse, geminiResponse] = await Promise.all([
-      getOpenAIResponse(messages),
+    // Make requests to all APIs in parallel
+    const [gpt35Response, gpt4oMiniResponse, geminiResponse] = await Promise.all([
+      getOpenAIResponse(messages, "gpt-3.5-turbo"),
+      getOpenAIResponse(messages, "gpt-4o-mini"),
       getGeminiResponse(messages)
     ]);
 
     return NextResponse.json({
-      openai: openaiResponse,
+      'gpt-3.5-turbo': gpt35Response,
+      'gpt-4o-mini': gpt4oMiniResponse,
       gemini: geminiResponse
     });
   } catch (error: unknown) {
@@ -87,19 +89,19 @@ export async function POST(req: Request) {
   }
 }
 
-async function getOpenAIResponse(messages: ChatMessage[]): Promise<string> {
+async function getOpenAIResponse(messages: ChatMessage[], model: string): Promise<string> {
   try {
     const completion = await openaiClient.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model,
       messages,
       temperature: 0.7,
       max_tokens: 500,
     });
 
-    return completion.choices[0]?.message?.content || 'No response generated from OpenAI';
+    return completion.choices[0]?.message?.content || `No response generated from ${model}`;
   } catch (error) {
-    console.error('OpenAI API error:', error);
-    return 'Error getting response from OpenAI';
+    console.error(`${model} API error:`, error);
+    return `Error getting response from ${model}`;
   }
 }
 
