@@ -12,6 +12,12 @@ const geminiClient = new OpenAI({
   baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
 });
 
+// Initialize Anthropic Claude client using OpenAI compatibility layer
+const claudeClient = new OpenAI({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  baseURL: "https://api.anthropic.com/v1/"
+});
+
 // Define a type for potential errors
 interface APIError extends Error {
   status?: number;
@@ -24,7 +30,7 @@ type ChatMessage = {
 };
 
 // Define model names
-const MODELS = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gemini'] as const;
+const MODELS = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gemini', 'claude'] as const;
 type ModelName = typeof MODELS[number];
 
 // Define response type
@@ -46,6 +52,13 @@ export async function POST(req: Request) {
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
         { error: 'Gemini API key is not configured' },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: 'Anthropic API key is not configured' },
         { status: 500 }
       );
     }
@@ -73,40 +86,45 @@ export async function POST(req: Request) {
     ];
 
     // Step 1: Get responses from all models in parallel
-    const [gpt35Response, gpt4oMiniResponse, geminiResponse] = await Promise.all([
+    const [gpt35Response, gpt4oMiniResponse, geminiResponse, claudeResponse] = await Promise.all([
       getOpenAIResponse(messages, "gpt-3.5-turbo"),
       getOpenAIResponse(messages, "gpt-4o-mini"),
-      getGeminiResponse(messages)
+      getGeminiResponse(messages),
+      getClaudeResponse(messages)
     ]);
 
     // Create an array of all responses
     const modelResponses: ModelResponse[] = [
       { model: 'gpt-3.5-turbo', response: gpt35Response },
       { model: 'gpt-4o-mini', response: gpt4oMiniResponse },
-      { model: 'gemini', response: geminiResponse }
+      { model: 'gemini', response: geminiResponse },
+      { model: 'claude', response: claudeResponse }
     ];
 
     // Step 2: Have each model vote on the best response
     const votingPrompt = createVotingPrompt(message, modelResponses);
 
     // Get votes from all models in parallel
-    const [gpt35Vote, gpt4oMiniVote, geminiVote] = await Promise.all([
+    const [gpt35Vote, gpt4oMiniVote, geminiVote, claudeVote] = await Promise.all([
       getVote(votingPrompt, "gpt-3.5-turbo"),
       getVote(votingPrompt, "gpt-4o-mini"),
-      getVoteFromGemini(votingPrompt)
+      getVoteFromGemini(votingPrompt),
+      getVoteFromClaude(votingPrompt)
     ]);
 
     // Count votes
     const votes: Record<ModelName, number> = {
       'gpt-3.5-turbo': 0,
       'gpt-4o-mini': 0,
-      'gemini': 0
+      'gemini': 0,
+      'claude': 0
     };
 
     // Process votes
     processVote(gpt35Vote, votes);
     processVote(gpt4oMiniVote, votes);
     processVote(geminiVote, votes);
+    processVote(claudeVote, votes);
 
     // Determine winner
     let winner: ModelName = 'gpt-4o-mini'; // Default winner
@@ -123,6 +141,7 @@ export async function POST(req: Request) {
       'gpt-3.5-turbo': gpt35Response,
       'gpt-4o-mini': gpt4oMiniResponse,
       'gemini': geminiResponse,
+      'claude': claudeResponse,
       votes,
       winner
     });
@@ -150,7 +169,7 @@ function createVotingPrompt(userQuestion: string, responses: ModelResponse[]): s
     prompt += `${model}'s Answer: "${response}"\n\n`;
   });
 
-  prompt += "Based on accuracy, helpfulness, and clarity, which answer is the best? Respond with ONLY the model name (gpt-3.5-turbo, gpt-4o-mini, or gemini) that provided the best answer. Do not include any explanation or additional text.";
+  prompt += "Based on accuracy, helpfulness, and clarity, which answer is the best? Respond with ONLY the model name (gpt-3.5-turbo, gpt-4o-mini, gemini, or claude) that provided the best answer. Do not include any explanation or additional text.";
 
   return prompt;
 }
@@ -165,6 +184,8 @@ function processVote(voteResponse: string, votes: Record<ModelName, number>) {
     votes['gpt-4o-mini']++;
   } else if (lowerVote.includes('gemini')) {
     votes['gemini']++;
+  } else if (lowerVote.includes('claude') || lowerVote.includes('anthropic')) {
+    votes['claude']++;
   }
 }
 
@@ -202,6 +223,23 @@ async function getVoteFromGemini(votingPrompt: string): Promise<string> {
   }
 }
 
+// Get a vote from Claude
+async function getVoteFromClaude(votingPrompt: string): Promise<string> {
+  try {
+    const completion = await claudeClient.chat.completions.create({
+      model: "claude-3-opus-20240229", // Use appropriate Claude model
+      messages: [{ role: 'user', content: votingPrompt }],
+      temperature: 0.3,
+      max_tokens: 50,
+    });
+
+    return completion.choices[0]?.message?.content || '';
+  } catch (error) {
+    console.error('Claude voting error:', error);
+    return '';
+  }
+}
+
 async function getOpenAIResponse(messages: ChatMessage[], model: string): Promise<string> {
   try {
     const completion = await openaiClient.chat.completions.create({
@@ -231,5 +269,21 @@ async function getGeminiResponse(messages: ChatMessage[]): Promise<string> {
   } catch (error) {
     console.error('Gemini API error:', error);
     return 'Error getting response from Gemini';
+  }
+}
+
+async function getClaudeResponse(messages: ChatMessage[]): Promise<string> {
+  try {
+    const completion = await claudeClient.chat.completions.create({
+      model: "claude-3-opus-20240229", // Use appropriate Claude model
+      messages,
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    return completion.choices[0]?.message?.content || 'No response generated from Claude';
+  } catch (error) {
+    console.error('Claude API error:', error);
+    return 'Error getting response from Claude';
   }
 }
