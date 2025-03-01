@@ -8,6 +8,8 @@ type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
   provider?: AIProvider;
+  isWinner?: boolean;
+  votes?: Record<AIProvider, number>;
 };
 
 export default function Chat() {
@@ -53,12 +55,34 @@ export default function Chat() {
       const data = await response.json();
 
       if (response.ok) {
-        // Add all AI responses to chat history
+        // Extract votes and winner
+        const votes = data.votes as Record<AIProvider, number>;
+        const winner = data.winner as AIProvider;
+
+        // Add all AI responses to chat history with voting information
         setChatHistory([
           ...updatedHistory,
-          { role: 'assistant', content: data['gpt-3.5-turbo'], provider: 'gpt-3.5-turbo' },
-          { role: 'assistant', content: data['gpt-4o-mini'], provider: 'gpt-4o-mini' },
-          { role: 'assistant', content: data.gemini, provider: 'gemini' }
+          {
+            role: 'assistant',
+            content: data['gpt-3.5-turbo'],
+            provider: 'gpt-3.5-turbo',
+            isWinner: winner === 'gpt-3.5-turbo',
+            votes
+          },
+          {
+            role: 'assistant',
+            content: data['gpt-4o-mini'],
+            provider: 'gpt-4o-mini',
+            isWinner: winner === 'gpt-4o-mini',
+            votes
+          },
+          {
+            role: 'assistant',
+            content: data.gemini,
+            provider: 'gemini',
+            isWinner: winner === 'gemini',
+            votes
+          }
         ]);
       } else {
         throw new Error(data.error || 'Failed to get response');
@@ -117,12 +141,28 @@ export default function Chat() {
               className={`mb-4 p-3 rounded-lg ${
                 msg.role === 'user'
                   ? 'bg-blue-100 dark:bg-blue-900 ml-auto'
-                  : 'bg-gray-100 dark:bg-gray-900'
+                  : msg.isWinner
+                    ? 'bg-yellow-100 dark:bg-yellow-900 border-2 border-yellow-400 dark:border-yellow-600'
+                    : 'bg-gray-100 dark:bg-gray-900'
               } max-w-[80%] ${msg.role === 'user' ? 'ml-auto' : 'mr-auto'}`}
             >
               {msg.provider && (
-                <div className={`text-xs text-white px-2 py-0.5 rounded mb-1 inline-block ${getProviderColor(msg.provider)}`}>
-                  {getProviderDisplayName(msg.provider)}
+                <div className="flex items-center justify-between mb-2">
+                  <div className={`text-xs text-white px-2 py-0.5 rounded inline-block ${getProviderColor(msg.provider)}`}>
+                    {getProviderDisplayName(msg.provider)}
+                  </div>
+
+                  {msg.votes && (
+                    <div className="flex items-center">
+                      <span className="text-xs text-gray-500 mr-1">Votes:</span>
+                      <span className="text-xs font-bold">{msg.votes[msg.provider]}</span>
+                      {msg.isWinner && (
+                        <span className="ml-2 text-xs bg-yellow-400 dark:bg-yellow-600 text-white px-2 py-0.5 rounded">
+                          BEST ANSWER
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               <p className="text-sm">{msg.content}</p>
@@ -131,7 +171,7 @@ export default function Chat() {
         )}
         {isLoading && (
           <div className="text-center text-gray-500 dark:text-gray-400">
-            <p>Thinking...</p>
+            <p>Thinking and evaluating responses...</p>
             <div className="flex justify-center gap-2 mt-2">
               <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded">GPT-3.5</span>
               <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs rounded">GPT-4o-mini</span>
