@@ -16,15 +16,15 @@ export default function Loading() {
           </div>
           <div className="flex gap-2">
             <div className="flex-1 p-2 border border-gray-300 dark:border-gray-700 rounded-lg"></div>
-            <div className="px-4 py-2 bg-gray-400 text-white rounded-lg">Send</div>
+            <div className="px-4 py-2 bg-gray-400 text-white rounded-lg">
+              Send
+            </div>
           </div>
         </div>
       </main>
 
       <footer className="flex gap-6 flex-wrap items-center justify-center">
-        <p className="text-sm text-gray-500">
-          Powered by OpenAI
-        </p>
+        <p className="text-sm text-gray-500">Rethink AI</p>
       </footer>
     </div>
   );
