@@ -87,10 +87,10 @@ export async function POST(req: Request) {
 
     // Step 1: Get responses from all models in parallel
     const [gpt35Response, gpt4oMiniResponse, geminiResponse, claudeResponse] = await Promise.all([
-      getOpenAIResponse(messages, "gpt-3.5-turbo"),
-      getOpenAIResponse(messages, "gpt-4o-mini"),
-      getGeminiResponse(messages),
-      getClaudeResponse(messages)
+      getModelResponse(messages, "gpt-3.5-turbo", openaiClient, 'gpt-3.5-turbo'),
+      getModelResponse(messages, "gpt-4o-mini", openaiClient, 'gpt-4o-mini'),
+      getModelResponse(messages, "gemini-2.0-flash", geminiClient, 'gemini'),
+      getModelResponse(messages, "claude-3-opus-20240229", claudeClient, 'claude')
     ]);
 
     // Create an array of all responses
@@ -106,10 +106,10 @@ export async function POST(req: Request) {
 
     // Get votes from all models in parallel
     const [gpt35Vote, gpt4oMiniVote, geminiVote, claudeVote] = await Promise.all([
-      getVote(votingPrompt, "gpt-3.5-turbo"),
-      getVote(votingPrompt, "gpt-4o-mini"),
-      getVoteFromGemini(votingPrompt),
-      getVoteFromClaude(votingPrompt)
+      getVote(votingPrompt, "gpt-3.5-turbo", openaiClient),
+      getVote(votingPrompt, "gpt-4o-mini", openaiClient),
+      getVote(votingPrompt, "gemini-2.0-flash", geminiClient),
+      getVote(votingPrompt, "claude-3-opus-20240229", claudeClient)
     ]);
 
     // Count votes
@@ -189,10 +189,14 @@ function processVote(voteResponse: string, votes: Record<ModelName, number>) {
   }
 }
 
-// Get a vote from an OpenAI model
-async function getVote(votingPrompt: string, model: string): Promise<string> {
+// Get a vote from any model
+async function getVote(
+  votingPrompt: string,
+  model: string,
+  client: OpenAI
+): Promise<string> {
   try {
-    const completion = await openaiClient.chat.completions.create({
+    const completion = await client.chat.completions.create({
       model,
       messages: [{ role: 'user', content: votingPrompt }],
       temperature: 0.3, // Lower temperature for more deterministic responses
@@ -206,84 +210,24 @@ async function getVote(votingPrompt: string, model: string): Promise<string> {
   }
 }
 
-// Get a vote from Gemini
-async function getVoteFromGemini(votingPrompt: string): Promise<string> {
+// Generic function to get a response from any model
+async function getModelResponse(
+  messages: ChatMessage[],
+  model: string,
+  client: OpenAI,
+  displayName: string
+): Promise<string> {
   try {
-    const completion = await geminiClient.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages: [{ role: 'user', content: votingPrompt }],
-      temperature: 0.3,
-      max_tokens: 50,
-    });
-
-    return completion.choices[0]?.message?.content || '';
-  } catch (error) {
-    console.error('Gemini voting error:', error);
-    return '';
-  }
-}
-
-// Get a vote from Claude
-async function getVoteFromClaude(votingPrompt: string): Promise<string> {
-  try {
-    const completion = await claudeClient.chat.completions.create({
-      model: "claude-3-opus-20240229", // Use appropriate Claude model
-      messages: [{ role: 'user', content: votingPrompt }],
-      temperature: 0.3,
-      max_tokens: 50,
-    });
-
-    return completion.choices[0]?.message?.content || '';
-  } catch (error) {
-    console.error('Claude voting error:', error);
-    return '';
-  }
-}
-
-async function getOpenAIResponse(messages: ChatMessage[], model: string): Promise<string> {
-  try {
-    const completion = await openaiClient.chat.completions.create({
+    const completion = await client.chat.completions.create({
       model,
       messages,
       temperature: 0.7,
       max_tokens: 500,
     });
 
-    return completion.choices[0]?.message?.content || `No response generated from ${model}`;
+    return completion.choices[0]?.message?.content || `No response generated from ${displayName}`;
   } catch (error) {
-    console.error(`${model} API error:`, error);
-    return `Error getting response from ${model}`;
-  }
-}
-
-async function getGeminiResponse(messages: ChatMessage[]): Promise<string> {
-  try {
-    const completion = await geminiClient.chat.completions.create({
-      model: "gemini-2.0-flash", // Use the appropriate Gemini model
-      messages,
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-
-    return completion.choices[0]?.message?.content || 'No response generated from Gemini';
-  } catch (error) {
-    console.error('Gemini API error:', error);
-    return 'Error getting response from Gemini';
-  }
-}
-
-async function getClaudeResponse(messages: ChatMessage[]): Promise<string> {
-  try {
-    const completion = await claudeClient.chat.completions.create({
-      model: "claude-3-opus-20240229", // Use appropriate Claude model
-      messages,
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-
-    return completion.choices[0]?.message?.content || 'No response generated from Claude';
-  } catch (error) {
-    console.error('Claude API error:', error);
-    return 'Error getting response from Claude';
+    console.error(`${displayName} API error:`, error);
+    return `Error getting response from ${displayName}`;
   }
 }
