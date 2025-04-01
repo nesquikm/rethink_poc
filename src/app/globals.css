@@ -22,3 +22,83 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@layer base {
+  /* Custom prose styles for markdown */
+  .prose pre {
+    background-color: rgb(17, 24, 39);
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+  }
+
+  /* Special styling for code blocks in user messages with blue background */
+  .prose-invert pre {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+
+  .prose-invert code {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: white;
+  }
+
+  .prose pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    color: rgb(209, 213, 219);
+  }
+
+  .prose code {
+    background-color: rgb(243, 244, 246);
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.25rem;
+    font-family: var(--font-geist-mono);
+  }
+
+  .dark .prose code {
+    background-color: rgb(31, 41, 55);
+    color: rgb(229, 231, 235);
+  }
+
+  .prose a {
+    color: rgb(59, 130, 246);
+    text-decoration: underline;
+  }
+
+  .prose blockquote {
+    border-left: 4px solid rgb(209, 213, 219);
+    padding-left: 1rem;
+    font-style: italic;
+  }
+
+  .dark .prose blockquote {
+    border-left-color: rgb(55, 65, 81);
+  }
+
+  .prose table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+  }
+
+  .prose table th,
+  .prose table td {
+    border: 1px solid rgb(209, 213, 219);
+    padding: 0.5rem;
+  }
+
+  .dark .prose table th,
+  .dark .prose table td {
+    border-color: rgb(55, 65, 81);
+  }
+
+  .prose table th {
+    background-color: rgb(243, 244, 246);
+    font-weight: 600;
+  }
+
+  .dark .prose table th {
+    background-color: rgb(31, 41, 55);
+  }
+}

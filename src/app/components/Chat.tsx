@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ModelId, models, getModelById } from '../api/models';
+import { ModelId } from '../api/models';
+import { getModelById, models } from '../api/models';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type ChatMessage = {
   role: 'user' | 'assistant' | 'system';
@@ -298,7 +301,11 @@ export default function Chat() {
                 {turn.user && (
                   <div className="flex justify-end">
                     <div className="bg-blue-500 text-white p-3 rounded-lg max-w-[80%]">
-                      {turn.user.content}
+                      <div className="prose prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {turn.user.content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -369,7 +376,11 @@ export default function Chat() {
                             )}
                           </div>
 
-                          <div className="whitespace-pre-wrap">{response.content}</div>
+                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {response.content}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       );
                     })}

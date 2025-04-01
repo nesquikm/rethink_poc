@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       messages = [
         {
           role: 'system',
-          content: 'You are a helpful assistant providing clear and concise answers.'
+          content: 'You are a helpful assistant providing clear and concise answers. Use markdown formatting in your responses when appropriate, including:\n\n- **Bold text** for emphasis\n- *Italic text* for subtle emphasis\n- `code blocks` for code snippets\n- ```javascript\nconsole.log("Code blocks with syntax highlighting");\n```\n- Lists (numbered and bulleted)\n- [Hyperlinks](https://example.com)\n- > Blockquotes for quoting\n- Tables for structured data'
         },
         {
           role: 'user',
