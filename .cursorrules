@@ -26,6 +26,13 @@
 - Message history is organized chronologically by turn ID
 - System message is always included at the beginning of the conversation
 
+### Model Configuration
+- Models are defined in a central location in the backend (`src/app/api/chat/models.ts`)
+- UI metadata for models is shared in a frontend file (`src/app/api/models.ts`)
+- Adding a new model requires only updating the models array in one place
+- Model/provider type definitions are shared between frontend and backend
+- API routes dynamically handle all models defined in the configuration
+
 ## UI Standards
 
 ### Color Coding
@@ -46,11 +53,20 @@
 - Selected tab: Blue bottom border
 - Tab headers: Color dot + model name
 
+### Layout Guidelines
+- Chat container: Fixed width of 1024px
+- User messages: Right-aligned, blue background
+- AI responses: Left-aligned, contained in tabbed interface
+- Message bubbles: Rounded corners with appropriate padding
+- Form elements: Full width with consistent button styling
+
 ## Code Organization
 
 ### Component File Structure
 - Chat.tsx: Main chat interface and state management
 - route.ts (in api/chat/): API endpoint for model interactions
+- models.ts (in api/chat/): Server-side model and provider configuration
+- models.ts (in api/): Client-side model metadata for UI
 
 ### API Response Structure
 - Each model's response is included in the response object
@@ -59,8 +75,10 @@
 
 ### Type Definitions
 - `ChatMessage` includes role, content, provider, turnId, and isSelected
-- `AIProvider` type includes all supported model names
+- `ModelId` type includes all supported model names
 - `ActiveTabsState` maps turn IDs to selected AI providers
+- `Model` interface defines the structure of model configuration
+- `Provider` interface defines the structure of provider configuration
 
 ## Critical Implementation Notes
 
@@ -75,10 +93,16 @@
   - Only the selected AI responses for each turn
   - The system message at the beginning
 
+### Dynamic Response Handling
+- The Chat component must dynamically handle responses based on the models configuration
+- Response processing should use the `models` array rather than hardcoded model names
+- New models should be automatically displayed when added to the configuration
+
 ### Error Handling
 - API calls should handle specific errors from each provider
 - UI should display appropriate error messages without breaking the conversation flow
 - Failed API calls should be gracefully handled without preventing further interaction
+- Environment variables should be validated centrally in the models configuration
 
 ### Performance Considerations
 - Large conversation histories may need truncation for context window limits
@@ -91,3 +115,8 @@
 - Model Context Protocol could be integrated to add web content access
 - The Fetch MCP Server would be a good candidate for initial integration
 - MCP configuration would likely be added to a `.cursor/mcp.json` file
+
+### Responsive Design Improvements
+- Current fixed width layout could be enhanced for better mobile support
+- Consider responsive breakpoints for different screen sizes
+- Ensure tab interface remains usable on smaller screens

@@ -1,21 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-
-type AIProvider = 'gpt-3.5-turbo' | 'gpt-4o-mini' | 'gemini' | 'claude';
+import { ModelId, models, getModelById } from '../api/models';
 
 type ChatMessage = {
   role: 'user' | 'assistant' | 'system';
   content: string;
-  provider?: AIProvider;
+  provider?: ModelId;
   isWinner?: boolean;
-  votes?: Record<AIProvider, number>;
+  votes?: Record<ModelId, number>;
   turnId?: number; // To group messages by conversation turn
   isSelected?: boolean; // Flag to indicate if this response was selected by the user
 };
 
 // Type for tracking active tabs for each conversation turn
-type ActiveTabsState = Record<number, AIProvider>;
+type ActiveTabsState = Record<number, ModelId>;
 
 // Helper to convert UI chat history to API format - only include selected responses
 const convertToAPIMessages = (chatHistory: ChatMessage[]): {role: string; content: string}[] => {
@@ -184,8 +183,8 @@ export default function Chat() {
 
       if (response.ok) {
         // Extract votes and winner
-        const votes = data.votes as Record<AIProvider, number>;
-        const winner = data.winner as AIProvider;
+        const votes = data.votes as Record<ModelId, number>;
+        const winner = data.winner as ModelId;
 
         // Set the winner as the active tab for this turn
         setActiveTabs(prev => ({
@@ -194,45 +193,24 @@ export default function Chat() {
         }));
 
         // Add all AI responses to chat history with voting information
-        setChatHistory([
-          ...updatedHistory,
-          {
-            role: 'assistant',
-            content: data['gpt-3.5-turbo'],
-            provider: 'gpt-3.5-turbo',
-            isWinner: winner === 'gpt-3.5-turbo',
-            isSelected: winner === 'gpt-3.5-turbo',
-            votes,
-            turnId: currentTurnId
-          },
-          {
-            role: 'assistant',
-            content: data['gpt-4o-mini'],
-            provider: 'gpt-4o-mini',
-            isWinner: winner === 'gpt-4o-mini',
-            isSelected: winner === 'gpt-4o-mini',
-            votes,
-            turnId: currentTurnId
-          },
-          {
-            role: 'assistant',
-            content: data.gemini,
-            provider: 'gemini',
-            isWinner: winner === 'gemini',
-            isSelected: winner === 'gemini',
-            votes,
-            turnId: currentTurnId
-          },
-          {
-            role: 'assistant',
-            content: data.claude,
-            provider: 'claude',
-            isWinner: winner === 'claude',
-            isSelected: winner === 'claude',
-            votes,
-            turnId: currentTurnId
+        const newResponses: ChatMessage[] = [];
+
+        // Dynamically add all model responses
+        models.forEach(model => {
+          if (data[model.id]) {
+            newResponses.push({
+              role: 'assistant',
+              content: data[model.id],
+              provider: model.id,
+              isWinner: winner === model.id,
+              isSelected: winner === model.id,
+              votes,
+              turnId: currentTurnId
+            });
           }
-        ]);
+        });
+
+        setChatHistory([...updatedHistory, ...newResponses]);
       } else {
         throw new Error(data.error || 'Failed to get response');
       }
@@ -253,80 +231,39 @@ export default function Chat() {
     localStorage.removeItem('chatHistory');
   };
 
-  // Function to change active tab for a specific turn
-  const handleTabChange = (turnId: number, provider: AIProvider) => {
-    // Only allow tab changes for the most recent turn
-    if (turnId === lastTurnId) {
-      setActiveTabs(prev => ({
-        ...prev,
-        [turnId]: provider
-      }));
-    }
+  // Function to handle tab changes
+  const handleTabChange = (turnId: number, provider: ModelId) => {
+    // Only allow changing tabs for the most recent turn
+    if (turnId !== lastTurnId) return;
+
+    setActiveTabs(prev => ({
+      ...prev,
+      [turnId]: provider
+    }));
   };
 
-  // Function to group messages by conversation turns
-  const getConversationTurns = () => {
-    const turns: Record<number, {
-      user: ChatMessage | null,
-      responses: ChatMessage[]
-    }> = {};
+  // Group messages by conversation turn
+  const messagesByTurn: Record<number, {
+    user: ChatMessage | null,
+    responses: ChatMessage[]
+  }> = {};
 
-    chatHistory.forEach(msg => {
-      if (!msg.turnId && msg.turnId !== 0) return;
+  chatHistory.forEach(msg => {
+    if (!msg.turnId && msg.turnId !== 0) return;
 
-      if (!turns[msg.turnId]) {
-        turns[msg.turnId] = {
-          user: null,
-          responses: []
-        };
-      }
-
-      if (msg.role === 'user') {
-        turns[msg.turnId].user = msg;
-      } else {
-        turns[msg.turnId].responses.push(msg);
-      }
-    });
-
-    return Object.entries(turns).map(([id, data]) => ({
-      id: parseInt(id),
-      ...data
-    })).sort((a, b) => a.id - b.id);
-  };
-
-  // Function to get the active tab for a turn, defaulting to the winner if no active tab is selected
-  const getActiveTab = (turnId: number, responses: ChatMessage[]): AIProvider => {
-    if (activeTabs[turnId]) {
-      return activeTabs[turnId];
+    if (!messagesByTurn[msg.turnId]) {
+      messagesByTurn[msg.turnId] = {
+        user: null,
+        responses: []
+      };
     }
 
-    // If no active tab is selected, find the winning response
-    const winner = responses.find(r => r.isWinner);
-    if (winner?.provider) {
-      return winner.provider as AIProvider;
+    if (msg.role === 'user') {
+      messagesByTurn[msg.turnId].user = msg;
+    } else {
+      messagesByTurn[msg.turnId].responses.push(msg);
     }
-
-    // If no winner, return the first provider
-    return responses[0]?.provider as AIProvider || 'gpt-4o-mini';
-  };
-
-  // Helper function to get provider badge color
-  const getProviderColor = (provider?: AIProvider) => {
-    if (provider === 'gpt-3.5-turbo') return 'bg-green-500';
-    if (provider === 'gpt-4o-mini') return 'bg-purple-500';
-    if (provider === 'gemini') return 'bg-blue-500';
-    if (provider === 'claude') return 'bg-red-500';
-    return '';
-  };
-
-  // Helper function to get provider display name
-  const getProviderDisplayName = (provider?: AIProvider) => {
-    if (provider === 'gpt-3.5-turbo') return 'GPT-3.5';
-    if (provider === 'gpt-4o-mini') return 'GPT-4o-mini';
-    if (provider === 'gemini') return 'GEMINI';
-    if (provider === 'claude') return 'CLAUDE';
-    return provider || '';
-  };
+  });
 
   // Return a simple placeholder during server-side rendering
   if (!mounted) {
@@ -341,153 +278,138 @@ export default function Chat() {
     );
   }
 
-  const conversationTurns = getConversationTurns();
-
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 bg-white dark:bg-black rounded-lg shadow">
-      {/* Header with clear button */}
-      <div className="flex justify-between items-center mb-2">
-        <h2 className="text-lg font-semibold">AI Chat</h2>
-        {chatHistory.length > 0 && (
-          <button
-            onClick={clearConversation}
-            className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800"
-          >
-            Clear Conversation
-          </button>
-        )}
-      </div>
+    <div className="flex flex-col h-full w-[1024px] mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Rethink AI Chat</h1>
 
+      {/* Chat messages */}
       <div
         ref={chatContainerRef}
-        className="h-[700px] overflow-y-auto mb-4 p-4 border border-gray-200 dark:border-gray-800 rounded"
+        className="flex-1 overflow-y-auto mb-4 space-y-4 border border-gray-200 rounded-lg p-4"
       >
-        {conversationTurns.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400 h-full flex items-center justify-center">
-            <p>Start a conversation by typing a message below.</p>
-          </div>
-        ) : (
-          conversationTurns.map(turn => {
-            const activeTab = getActiveTab(turn.id, turn.responses);
-            const isLatestTurn = turn.id === lastTurnId;
+        {Object.entries(messagesByTurn)
+          .map(([turnIdStr, turn]) => {
+            const turnId = parseInt(turnIdStr);
+            const isLatestTurn = turnId === lastTurnId;
 
             return (
-              <div key={turn.id} className="mb-6">
+              <div key={`turn-${turnId}`} className="space-y-2">
                 {/* User message */}
                 {turn.user && (
-                  <div
-                    className="mb-4 p-3 rounded-lg bg-blue-100 dark:bg-blue-900 ml-auto max-w-[80%]"
-                  >
-                    <p className="text-sm">{turn.user.content}</p>
+                  <div className="flex justify-end">
+                    <div className="bg-blue-500 text-white p-3 rounded-lg max-w-[80%]">
+                      {turn.user.content}
+                    </div>
                   </div>
                 )}
 
-                {/* AI responses with tabs */}
+                {/* AI Responses in tabs */}
                 {turn.responses.length > 0 && (
-                  <div className="mr-auto max-w-[90%]">
-                    {/* Tabs header - only interactive for latest turn */}
-                    <div className="flex overflow-x-auto mb-2 border-b border-gray-200 dark:border-gray-700">
-                      {turn.responses.map(response => (
-                        <button
-                          key={response.provider}
-                          onClick={() => handleTabChange(turn.id, response.provider as AIProvider)}
-                          className={`px-3 py-2 text-xs font-medium whitespace-nowrap ${
-                            activeTab === response.provider
-                              ? `text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400`
-                              : `text-gray-500 dark:text-gray-400 ${isLatestTurn ? 'hover:text-gray-700 dark:hover:text-gray-300' : ''}`
-                          } ${!isLatestTurn ? 'cursor-default opacity-80' : ''}`}
-                          aria-selected={activeTab === response.provider}
-                          disabled={!isLatestTurn}
-                        >
-                          <div className="flex items-center">
-                            <span className={`h-2 w-2 rounded-full mr-2 ${getProviderColor(response.provider as AIProvider)}`}></span>
-                            {getProviderDisplayName(response.provider as AIProvider)}
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Tab headers */}
+                    <div className="flex border-b">
+                      {turn.responses.map(response => {
+                        const isActive = activeTabs[turnId] === response.provider;
+                        const modelData = response.provider ? getModelById(response.provider) : undefined;
+
+                        return (
+                          <button
+                            key={`${turnId}-${response.provider}`}
+                            className={`px-4 py-2 text-sm flex items-center space-x-1 ${
+                              isActive ? 'border-b-2 border-blue-500 font-medium' : 'text-gray-500'
+                            } ${!isLatestTurn ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            disabled={!isLatestTurn}
+                            onClick={() => handleTabChange(turnId, response.provider as ModelId)}
+                          >
+                            {/* Color dot for model */}
+                            <span
+                              className="w-2 h-2 rounded-full inline-block mr-1"
+                              style={{ backgroundColor: modelData?.color || '#888' }}
+                            ></span>
+
+                            <span>{modelData?.displayName || response.provider}</span>
+
+                            {/* Winner star */}
                             {response.isWinner && (
-                              <span className="ml-1 text-[10px] text-yellow-600 dark:text-yellow-400">★</span>
+                              <span className="text-yellow-400 ml-1" title="Best Answer">★</span>
                             )}
+
+                            {/* Selected indicator */}
                             {response.isSelected && !isLatestTurn && (
-                              <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-400">✓</span>
+                              <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 rounded">SELECTED</span>
                             )}
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
 
                     {/* Tab content */}
-                    {turn.responses.map(response => (
-                      <div
-                        key={response.provider}
-                        className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-900 ${
-                          activeTab === response.provider ? 'block' : 'hidden'
-                        }`}
-                        role="tabpanel"
-                        aria-hidden={activeTab !== response.provider}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className={`text-xs text-white px-2 py-0.5 rounded inline-block ${getProviderColor(response.provider as AIProvider)}`}>
-                            {getProviderDisplayName(response.provider as AIProvider)}
-                          </div>
+                    {turn.responses.map(response => {
+                      const isActive = activeTabs[turnId] === response.provider;
+                      if (!isActive) return null;
 
-                          <div className="flex items-center">
-                            {response.votes && (
-                              <>
-                                <span className="text-xs text-gray-500 mr-1">Votes:</span>
-                                <span className="text-xs font-bold">{response.votes[response.provider as AIProvider]}</span>
-                              </>
-                            )}
-
+                      return (
+                        <div
+                          key={`content-${turnId}-${response.provider}`}
+                          className="p-4"
+                        >
+                          <div className="mb-2 flex justify-between items-center">
                             {response.isWinner && (
-                              <span className="ml-2 text-xs bg-yellow-400 dark:bg-yellow-600 text-white px-2 py-0.5 rounded">
+                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
                                 BEST ANSWER
                               </span>
                             )}
 
-                            {response.isSelected && !isLatestTurn && (
-                              <span className="ml-2 text-xs bg-blue-400 dark:bg-blue-600 text-white px-2 py-0.5 rounded">
-                                SELECTED
-                              </span>
+                            {response.votes && (
+                              <div className="text-xs text-gray-500">
+                                Votes: {Object.entries(response.votes).map(([model, count]) => (
+                                  count > 0 ? <span key={model} className="mr-2">{model}: {count}</span> : null
+                                ))}
+                              </div>
                             )}
                           </div>
+
+                          <div className="whitespace-pre-wrap">{response.content}</div>
                         </div>
-                        <p className="text-sm">{response.content}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
             );
-          })
-        )}
+          })}
+
         {isLoading && (
-          <div className="text-center text-gray-500 dark:text-gray-400 my-4">
-            <p>Thinking and evaluating responses...</p>
-            <div className="flex justify-center gap-2 mt-2 flex-wrap">
-              <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded">GPT-3.5</span>
-              <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs rounded">GPT-4o-mini</span>
-              <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded">Gemini</span>
-              <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded">Claude</span>
-            </div>
+          <div className="flex justify-center py-4">
+            <div className="animate-pulse text-gray-500">Getting responses...</div>
           </div>
         )}
       </div>
 
+      {/* Chat input */}
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message..."
-          className="flex-1 p-2 border border-gray-300 dark:border-gray-700 rounded-lg
-                   bg-white dark:bg-gray-800 text-black dark:text-white"
+          className="flex-1 p-2 border border-gray-300 rounded-lg"
           disabled={isLoading}
         />
         <button
           type="submit"
-          disabled={isLoading}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600
-                   disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg disabled:bg-blue-300"
+          disabled={isLoading || !message.trim()}
         >
           Send
+        </button>
+        <button
+          type="button"
+          onClick={clearConversation}
+          className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg"
+          disabled={isLoading || chatHistory.length === 0}
+        >
+          Clear
         </button>
       </form>
     </div>

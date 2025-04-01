@@ -1,22 +1,11 @@
-import { OpenAI } from 'openai';
 import { NextResponse } from 'next/server';
-
-// Initialize OpenAI client
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Initialize Gemini client using OpenAI compatibility layer
-const geminiClient = new OpenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
-});
-
-// Initialize Anthropic Claude client using OpenAI compatibility layer
-const claudeClient = new OpenAI({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: "https://api.anthropic.com/v1/"
-});
+import { OpenAI } from 'openai';
+import {
+  models,
+  getClientForModel,
+  validateEnvVariables,
+  ModelId
+} from './models';
 
 // Define a type for potential errors
 interface APIError extends Error {
@@ -29,36 +18,19 @@ type ChatMessage = {
   content: string;
 };
 
-// Define model names
-const MODELS = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gemini', 'claude'] as const;
-type ModelName = typeof MODELS[number];
-
 // Define response type
 interface ModelResponse {
-  model: ModelName;
+  model: ModelId;
   response: string;
 }
 
 export async function POST(req: Request) {
   try {
     // Check if API keys are configured
-    if (!process.env.OPENAI_API_KEY) {
+    const missingVars = validateEnvVariables();
+    if (missingVars.length > 0) {
       return NextResponse.json(
-        { error: 'OpenAI API key is not configured' },
-        { status: 500 }
-      );
-    }
-
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: 'Gemini API key is not configured' },
-        { status: 500 }
-      );
-    }
-
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        { error: 'Anthropic API key is not configured' },
+        { error: `Missing required API keys: ${missingVars.join(', ')}` },
         { status: 500 }
       );
     }
@@ -94,65 +66,70 @@ export async function POST(req: Request) {
     }
 
     // Step 1: Get responses from all models in parallel
-    const [gpt35Response, gpt4oMiniResponse, geminiResponse, claudeResponse] = await Promise.all([
-      getModelResponse(messages, "gpt-3.5-turbo", openaiClient, 'gpt-3.5-turbo'),
-      getModelResponse(messages, "gpt-4o-mini", openaiClient, 'gpt-4o-mini'),
-      getModelResponse(messages, "gemini-2.0-flash", geminiClient, 'gemini'),
-      getModelResponse(messages, "claude-3-opus-20240229", claudeClient, 'claude')
-    ]);
+    const modelResponses = await Promise.all(
+      models.map(model =>
+        getModelResponse(
+          messages,
+          model.apiModelName,
+          getClientForModel(model.id),
+          model.id
+        )
+      )
+    );
 
-    // Create an array of all responses
-    const modelResponses: ModelResponse[] = [
-      { model: 'gpt-3.5-turbo', response: gpt35Response },
-      { model: 'gpt-4o-mini', response: gpt4oMiniResponse },
-      { model: 'gemini', response: geminiResponse },
-      { model: 'claude', response: claudeResponse }
-    ];
+    // Create an array of all responses for voting
+    const modelResponsesForVoting: ModelResponse[] = models.map((model, index) => ({
+      model: model.id as ModelId,
+      response: modelResponses[index]
+    }));
 
     // Step 2: Have each model vote on the best response
-    const votingPrompt = createVotingPrompt(message, modelResponses);
+    const votingPrompt = createVotingPrompt(message, modelResponsesForVoting);
 
     // Get votes from all models in parallel
-    const [gpt35Vote, gpt4oMiniVote, geminiVote, claudeVote] = await Promise.all([
-      getVote(votingPrompt, "gpt-3.5-turbo", openaiClient),
-      getVote(votingPrompt, "gpt-4o-mini", openaiClient),
-      getVote(votingPrompt, "gemini-2.0-flash", geminiClient),
-      getVote(votingPrompt, "claude-3-opus-20240229", claudeClient)
-    ]);
+    const votes = await Promise.all(
+      models.map(model =>
+        getVote(
+          votingPrompt,
+          model.apiModelName,
+          getClientForModel(model.id)
+        )
+      )
+    );
 
     // Count votes
-    const votes: Record<ModelName, number> = {
-      'gpt-3.5-turbo': 0,
-      'gpt-4o-mini': 0,
-      'gemini': 0,
-      'claude': 0
-    };
+    const voteResults: Record<ModelId, number> = Object.fromEntries(
+      models.map(model => [model.id, 0])
+    ) as Record<ModelId, number>;
 
     // Process votes
-    processVote(gpt35Vote, votes);
-    processVote(gpt4oMiniVote, votes);
-    processVote(geminiVote, votes);
-    processVote(claudeVote, votes);
+    votes.forEach(voteResponse => {
+      processVote(voteResponse, voteResults);
+    });
 
     // Determine winner
-    let winner: ModelName = 'gpt-4o-mini'; // Default winner
+    let winner: ModelId = 'gpt-4o-mini'; // Default winner
     let maxVotes = 0;
 
-    for (const model of MODELS) {
-      if (votes[model] > maxVotes) {
-        maxVotes = votes[model];
-        winner = model;
+    Object.entries(voteResults).forEach(([modelId, voteCount]) => {
+      if (voteCount > maxVotes) {
+        maxVotes = voteCount;
+        winner = modelId as ModelId;
       }
-    }
-
-    return NextResponse.json({
-      'gpt-3.5-turbo': gpt35Response,
-      'gpt-4o-mini': gpt4oMiniResponse,
-      'gemini': geminiResponse,
-      'claude': claudeResponse,
-      votes,
-      winner
     });
+
+    // Build response object with all model responses
+    const responseData: Record<string, unknown> = {
+      votes: voteResults,
+      winner
+    };
+
+    // Add each model's response to the response object
+    models.forEach((model, index) => {
+      responseData[model.id] = modelResponses[index];
+    });
+
+    return NextResponse.json(responseData);
   } catch (error: unknown) {
     console.error('Error in chat API:', error);
 
@@ -177,35 +154,37 @@ function createVotingPrompt(userQuestion: string, responses: ModelResponse[]): s
     prompt += `${model}'s Answer: "${response}"\n\n`;
   });
 
-  prompt += "Based on accuracy, helpfulness, and clarity, which answer is the best? Respond with ONLY the model name (gpt-3.5-turbo, gpt-4o-mini, gemini, or claude) that provided the best answer. Do not include any explanation or additional text.";
+  // Create a list of model IDs for the prompt
+  const modelIdsList = models.map(m => m.id).join(', ');
+  prompt += `Based on accuracy, helpfulness, and clarity, which answer is the best? Respond with ONLY the model name (${modelIdsList}) that provided the best answer. Do not include any explanation or additional text.`;
 
   return prompt;
 }
 
 // Process a vote response
-function processVote(voteResponse: string, votes: Record<ModelName, number>) {
+function processVote(voteResponse: string, votes: Record<ModelId, number>) {
   const lowerVote = voteResponse.toLowerCase().trim();
 
-  if (lowerVote.includes('gpt-3.5') || lowerVote.includes('gpt3.5') || lowerVote.includes('gpt-3')) {
-    votes['gpt-3.5-turbo']++;
-  } else if (lowerVote.includes('gpt-4o') || lowerVote.includes('gpt4o') || lowerVote.includes('4o-mini')) {
-    votes['gpt-4o-mini']++;
-  } else if (lowerVote.includes('gemini')) {
-    votes['gemini']++;
-  } else if (lowerVote.includes('claude') || lowerVote.includes('anthropic')) {
-    votes['claude']++;
-  }
+  models.forEach(model => {
+    // Look for exact model ID match or substring with dashes/numbers removed
+    const simplifiedId = model.id.replace(/[-\d\.]/g, '');
+    if (lowerVote.includes(model.id) || lowerVote.includes(simplifiedId)) {
+      votes[model.id as ModelId]++;
+    }
+  });
 }
 
 // Get a vote from any model
 async function getVote(
   votingPrompt: string,
-  model: string,
-  client: OpenAI
+  modelName: string,
+  client: OpenAI | undefined
 ): Promise<string> {
+  if (!client) return '';
+
   try {
     const completion = await client.chat.completions.create({
-      model,
+      model: modelName,
       messages: [{ role: 'user', content: votingPrompt }],
       temperature: 0.3, // Lower temperature for more deterministic responses
       max_tokens: 50,
@@ -213,7 +192,7 @@ async function getVote(
 
     return completion.choices[0]?.message?.content || '';
   } catch (error) {
-    console.error(`${model} voting error:`, error);
+    console.error(`${modelName} voting error:`, error);
     return '';
   }
 }
@@ -221,21 +200,25 @@ async function getVote(
 // Generic function to get a response from any model
 async function getModelResponse(
   messages: ChatMessage[],
-  model: string,
-  client: OpenAI,
-  displayName: string
+  modelName: string,
+  client: OpenAI | undefined,
+  modelId: string
 ): Promise<string> {
+  if (!client) return `No client available for model ${modelId}`;
+
   try {
+    const model = models.find(m => m.id === modelId);
+    const defaultParams = model?.defaultParams || {};
+
     const completion = await client.chat.completions.create({
-      model,
+      model: modelName,
       messages,
-      temperature: 0.7,
-      max_tokens: 500,
+      ...defaultParams
     });
 
-    return completion.choices[0]?.message?.content || `No response generated from ${displayName}`;
+    return completion.choices[0]?.message?.content || `No response generated from ${modelId}`;
   } catch (error) {
-    console.error(`${displayName} API error:`, error);
-    return `Error getting response from ${displayName}`;
+    console.error(`${modelId} API error:`, error);
+    return `Error getting response from ${modelId}`;
   }
 }

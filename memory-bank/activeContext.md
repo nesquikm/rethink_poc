@@ -4,40 +4,38 @@
 
 The project is currently focused on enhancing the existing multi-model AI chat application with the following key areas of work:
 
-1. **UI/UX Refinement**: Improvements to the tabbed interface for AI responses, with a focus on conversation history management and response selection functionality.
+1. **Model and Provider Management**: Implementation of a centralized system for defining models and providers, making it easier to add new models or providers to the application.
 
-2. **Conversation History Management**: Implementation of a system that only includes selected AI responses in the conversation history, with a mechanism to lock older selections.
+2. **UI/UX Refinement**: Improvements to the chat interface layout, particularly focusing on a consistent and wider display for better readability.
 
-3. **Response Selection Tracking**: Adding functionality to track which AI responses were selected by the user and using only those for conversation context.
+3. **Conversation History Management**: Ongoing enhancements to the system that only includes selected AI responses in the conversation history, with a mechanism to lock older selections.
 
-4. **System Stability**: Ensuring robust error handling across all AI model providers to maintain a consistent user experience even when specific models or APIs fail.
+4. **Response Selection Tracking**: Maintaining and improving functionality to track which AI responses were selected by the user and using only those for conversation context.
 
 ## Recent Changes
 
-1. **Conversation History Selection System**:
-   - Implemented logic to track which AI response was selected for each conversation turn
-   - Added `isSelected` property to the `ChatMessage` type to indicate user selection
-   - Updated the conversation history to only include user-selected responses
-   - Added visual indicators (badges) for selected responses
-   - Locked older answer selections to prevent changing history retroactively
-   - Only the most recent turn allows switching between different AI responses
+1. **Centralized Model and Provider System**:
+   - Created a server-side model configuration in `src/app/api/chat/models.ts` with interfaces for providers and models
+   - Added a client-side model metadata file in `src/app/api/models.ts` for UI-specific model information
+   - Updated API routes to dynamically handle models from the centralized configuration
+   - Refactored the Chat component to use the shared model definitions
+   - Made adding new models and providers significantly easier by centralizing definitions
 
-2. **Tabbed Response Interface Improvements**:
-   - Enhanced the tab interface to visually indicate selected responses in previous turns
-   - Added reduced opacity and disabled state for tabs in older turns
-   - Implemented tab locking for all turns except the most recent
-   - Added "SELECTED" badge to indicate which response was chosen in past turns
-   - Maintained the winning response highlight for the latest turn
+2. **Chat UI Improvements**:
+   - Increased chat window width to a fixed 1024px for better readability
+   - Enhanced layout for a more consistent user experience
+   - Improved visual design of model response tabs
+   - Added dynamic model information display from centralized configuration
 
-3. **API Message Conversion Enhancement**:
-   - Updated `convertToAPIMessages` function to filter and only include selected responses
-   - Implemented grouping by turn ID for proper conversation organization
-   - Enhanced the message filtering logic to maintain conversation coherence
+3. **Refactored Model Response Handling**:
+   - Updated the response handling system to dynamically process all models defined in the configuration
+   - Implemented a more flexible approach to adding responses to the chat history
+   - Improved vote counting and winner determination with model-agnostic code
 
-4. **State Management Improvements**:
-   - Added last turn ID tracking to identify the most recent conversation turn
-   - Implemented state for active tabs across all conversation turns
-   - Created effect hooks to update selection status when tab choices change
+4. **Enhanced Error Handling**:
+   - Added better environment variable validation for API keys
+   - Improved error reporting for missing API keys
+   - Added graceful degradation when model clients are unavailable
 
 ## Next Steps
 
@@ -71,22 +69,22 @@ The project is currently focused on enhancing the existing multi-model AI chat a
 
 ## Active Decisions and Considerations
 
-1. **Conversation History Management**:
-   - Currently implemented a system where only selected responses are included in history
+1. **Model Management Strategy**:
+   - Evaluating the most flexible way to handle model parameters and configuration
+   - Considering options for user-configurable model settings
+   - Planning for potential addition of new models in the future
+
+2. **Chat UI Layout**:
+   - Currently using a fixed-width layout (1024px) for the chat interface
+   - Considering responsive design improvements for different screen sizes
+   - Evaluating the balance between content readability and space utilization
+
+3. **Conversation History Management**:
+   - Continuing to refine the system where only selected responses are included in history
    - Considering options for allowing users to revisit and potentially edit previous selections
    - Evaluating the impact of limited context on model performance for long conversations
 
-2. **Tab Interface Experience**:
-   - Evaluating whether to add more information to the tab headers
-   - Considering adding tooltips to explain tab functionality (locked vs. active)
-   - Exploring options for improving tab accessibility with keyboard navigation
-
-3. **Model Context Protocol (MCP) Integration**:
+4. **Model Context Protocol (MCP) Integration**:
    - Evaluating the benefits of integrating Fetch MCP for web content access
    - Considering the implementation complexity vs. benefits for the current project scope
    - Researching best practices for MCP configuration in Next.js applications
-
-4. **Context Window Management**:
-   - Evaluating options for handling long conversations (token counting vs message-based truncation)
-   - Considering strategies for maintaining context relevance with selected-only responses
-   - Determining the optimal balance between context length and API costs
