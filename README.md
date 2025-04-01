@@ -14,6 +14,10 @@ Rethink AI addresses the growing complexity of choosing the right AI model for s
 - **Markdown Rendering**: Properly renders formatted text, code blocks, tables, and other markdown elements
 - **Winner Highlighting**: Visual indicators for the "best" response based on voting
 
+## Demo
+
+![Rethink AI in action](/public/images/demo.gif)
+
 ## Documentation
 
 The project is documented using a Memory Bank structure:
