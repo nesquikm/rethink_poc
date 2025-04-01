@@ -23,4 +23,5 @@ export function getModelById(id: ModelId): ModelUIData | undefined {
 }
 
 // Re-export model IDs for convenience
-export { ModelId, MODEL_IDS };
+export type { ModelId };
+export { MODEL_IDS };
