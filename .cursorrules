@@ -1,0 +1,93 @@
+# Rethink AI POC Project Rules
+
+## Project Patterns
+
+### Conversation Structure
+- Each conversation turn has a unique `turnId` to group user messages with corresponding AI responses
+- AI responses are grouped under the same `turnId` as the user message they respond to
+- Only selected responses are included in the conversation history for AI context
+- Previous turn selections are locked and cannot be changed after a new turn starts
+
+### Component Organization
+- The Chat component is the main container for all chat functionality
+- Conversation turns are organized within the chat container
+- Each turn contains a user message and corresponding AI responses in tabs
+- Tab interaction is only allowed for the most recent turn
+
+### State Management
+- The `activeTabs` state tracks which AI provider tab is selected for each turn
+- The `lastTurnId` state identifies the most recent conversation turn
+- The `isSelected` property on chat messages indicates which responses are included in history
+- Local storage is used to persist conversation history between sessions
+
+### API Interaction
+- All API calls use the OpenAI client with compatible endpoints
+- The `convertToAPIMessages` function filters message history to only include selected responses
+- Message history is organized chronologically by turn ID
+- System message is always included at the beginning of the conversation
+
+## UI Standards
+
+### Color Coding
+- GPT-3.5: Green (#10B981)
+- GPT-4o-mini: Purple (#8B5CF6)
+- Gemini: Blue (#3B82F6)
+- Claude: Red (#EF4444)
+
+### Visual Indicators
+- Selected responses in previous turns: "SELECTED" badge
+- Best answer based on voting: "BEST ANSWER" badge
+- Winning model: Yellow star icon (★)
+- Selected response in history: Checkmark icon (✓)
+
+### Interactive Elements
+- Latest turn tabs: Fully interactive
+- Previous turn tabs: Disabled with reduced opacity
+- Selected tab: Blue bottom border
+- Tab headers: Color dot + model name
+
+## Code Organization
+
+### Component File Structure
+- Chat.tsx: Main chat interface and state management
+- route.ts (in api/chat/): API endpoint for model interactions
+
+### API Response Structure
+- Each model's response is included in the response object
+- Vote counts for each model are included
+- The winning model name is included
+
+### Type Definitions
+- `ChatMessage` includes role, content, provider, turnId, and isSelected
+- `AIProvider` type includes all supported model names
+- `ActiveTabsState` maps turn IDs to selected AI providers
+
+## Critical Implementation Notes
+
+### Tab Selection Logic
+- Only the latest turn allows switching between tabs
+- Previous turns should show which tab was selected but prevent changing
+- The `handleTabChange` function restricts tab changes to the most recent turn
+
+### Conversation History Filtering
+- The `convertToAPIMessages` function must filter messages to only include:
+  - All user messages in chronological order
+  - Only the selected AI responses for each turn
+  - The system message at the beginning
+
+### Error Handling
+- API calls should handle specific errors from each provider
+- UI should display appropriate error messages without breaking the conversation flow
+- Failed API calls should be gracefully handled without preventing further interaction
+
+### Performance Considerations
+- Large conversation histories may need truncation for context window limits
+- Local storage has size limitations for conversation persistence
+- Parallel API calls should have reasonable timeouts
+
+## Future Implementation Notes
+
+### MCP Integration
+- Model Context Protocol could be integrated to add web content access
+- The Fetch MCP Server would be a good candidate for initial integration
+- MCP configuration would likely be added to a `.cursor/mcp.json` file

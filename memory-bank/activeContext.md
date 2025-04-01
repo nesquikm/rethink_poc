@@ -4,76 +4,89 @@
 
 The project is currently focused on enhancing the existing multi-model AI chat application with the following key areas of work:
 
-1. **System Stability**: Ensuring robust error handling across all AI model providers to maintain a consistent user experience even when specific models or APIs fail.
+1. **UI/UX Refinement**: Improvements to the tabbed interface for AI responses, with a focus on conversation history management and response selection functionality.
 
-2. **UI/UX Refinement**: Refining the chat interface to clearly present responses from multiple models while maintaining an intuitive and clean user experience.
+2. **Conversation History Management**: Implementation of a system that only includes selected AI responses in the conversation history, with a mechanism to lock older selections.
 
-3. **Conversation Context**: Working on implementing conversation history maintenance and context management for more coherent interactions.
+3. **Response Selection Tracking**: Adding functionality to track which AI responses were selected by the user and using only those for conversation context.
+
+4. **System Stability**: Ensuring robust error handling across all AI model providers to maintain a consistent user experience even when specific models or APIs fail.
 
 ## Recent Changes
 
-1. **API Integration**:
-   - Successfully integrated OpenAI models (GPT-3.5-turbo and GPT-4o-mini)
-   - Added Gemini model integration with OpenAI-compatible endpoint
-   - Implemented Claude model integration with OpenAI-compatible endpoint
+1. **Conversation History Selection System**:
+   - Implemented logic to track which AI response was selected for each conversation turn
+   - Added `isSelected` property to the `ChatMessage` type to indicate user selection
+   - Updated the conversation history to only include user-selected responses
+   - Added visual indicators (badges) for selected responses
+   - Locked older answer selections to prevent changing history retroactively
+   - Only the most recent turn allows switching between different AI responses
 
-2. **Voting System**:
-   - Implemented cross-model voting mechanism where each model evaluates responses from all models
-   - Added visual highlighting for the "winning" response based on votes
-   - Included vote counts in the UI to provide transparency in the selection process
+2. **Tabbed Response Interface Improvements**:
+   - Enhanced the tab interface to visually indicate selected responses in previous turns
+   - Added reduced opacity and disabled state for tabs in older turns
+   - Implemented tab locking for all turns except the most recent
+   - Added "SELECTED" badge to indicate which response was chosen in past turns
+   - Maintained the winning response highlight for the latest turn
 
-3. **Error Handling**:
-   - Added comprehensive error handling for API failures
-   - Implemented graceful fallbacks when specific models fail to respond
-   - Created dedicated error components for different error states
+3. **API Message Conversion Enhancement**:
+   - Updated `convertToAPIMessages` function to filter and only include selected responses
+   - Implemented grouping by turn ID for proper conversation organization
+   - Enhanced the message filtering logic to maintain conversation coherence
 
-4. **UI Components**:
-   - Designed and implemented a responsive chat interface
-   - Added loading indicators for better user feedback during API calls
-   - Created visual differentiation between responses from different models
+4. **State Management Improvements**:
+   - Added last turn ID tracking to identify the most recent conversation turn
+   - Implemented state for active tabs across all conversation turns
+   - Created effect hooks to update selection status when tab choices change
 
 ## Next Steps
 
 ### Immediate Priorities
-1. **Conversation Context**:
-   - Implement conversation history maintenance
-   - Add context window management for longer conversations
-   - Create a system for managing conversation state across sessions
+1. **UI/UX Enhancements**:
+   - Add keyboard navigation for the tab interface
+   - Implement dark mode toggle
+   - Improve mobile responsiveness for the tabbed interface
+   - Add visual transitions when switching between tabs
 
-2. **Performance Optimizations**:
-   - Implement response streaming for faster initial feedback
-   - Add caching mechanisms for repeated queries
-   - Optimize parallel API calls to reduce overall response time
+2. **Advanced Context Management**:
+   - Implement token counting for context window management
+   - Add conversation truncation for very long conversations
+   - Create more sophisticated context filtering options
 
-3. **Reliability Improvements**:
+3. **Model Context Protocol Integration**:
+   - Explore integration with Fetch MCP Server for AI assistant web content access
+   - Research and potentially implement MCP server for contextual enhancements
+   - Consider configuration options for MCP integration in the project
+
+### Medium-term Goals
+1. **Additional User Controls**:
+   - Add user preferences for default models
+   - Implement custom system prompts per model
+   - Create model comparison analytics
+
+2. **Reliability Improvements**:
    - Add retry mechanisms for failed API calls
    - Implement fallback strategies for when specific models are unavailable
    - Create a monitoring system for API performance and availability
 
-### Medium-term Goals
-1. **UI/UX Enhancements**:
-   - Add user preferences for default models
-   - Implement a dark/light mode toggle
-   - Create a more interactive voting display
-
-2. **Model Configuration**:
-   - Add temperature and other parameter controls
-   - Implement custom system prompts per model
-   - Create model comparison analytics
-
 ## Active Decisions and Considerations
 
-1. **Conversation Persistence**:
-   - Evaluating options for storing conversation history (client-side vs. server-side)
-   - Considering privacy implications of conversation storage
-   - Determining the scope of history to maintain (session-only vs. long-term)
+1. **Conversation History Management**:
+   - Currently implemented a system where only selected responses are included in history
+   - Considering options for allowing users to revisit and potentially edit previous selections
+   - Evaluating the impact of limited context on model performance for long conversations
 
-2. **Model Selection Strategy**:
-   - Considering alternatives to the current voting mechanism
-   - Evaluating whether to add user override of model selection
-   - Exploring adaptive model selection based on query type
+2. **Tab Interface Experience**:
+   - Evaluating whether to add more information to the tab headers
+   - Considering adding tooltips to explain tab functionality (locked vs. active)
+   - Exploring options for improving tab accessibility with keyboard navigation
 
-3. **API Resilience**:
-   - Designing strategies for handling API rate limits
-   - Planning for service outages from specific providers
-   - Implementing cost control mechanisms for API usage
+3. **Model Context Protocol (MCP) Integration**:
+   - Evaluating the benefits of integrating Fetch MCP for web content access
+   - Considering the implementation complexity vs. benefits for the current project scope
+   - Researching best practices for MCP configuration in Next.js applications
+
+4. **Context Window Management**:
+   - Evaluating options for handling long conversations (token counting vs message-based truncation)
+   - Considering strategies for maintaining context relevance with selected-only responses
+   - Determining the optimal balance between context length and API costs

@@ -8,6 +8,7 @@ The Rethink AI POC follows a clean Next.js App Router architecture with a clear 
 - **Next.js App Router**: Provides the routing framework for the application
 - **React Components**: Client-side components for the chat interface
 - **TailwindCSS**: Utility-first CSS framework for styling
+- **Tabbed Interface**: Component system for displaying multiple AI responses
 
 ### Backend
 - **Next.js API Routes**: Server-side API endpoints for handling AI model requests
@@ -15,12 +16,14 @@ The Rethink AI POC follows a clean Next.js App Router architecture with a clear 
 
 ### Data Flow
 1. User inputs a message via the React-based Chat component
-2. The message is sent to the Next.js API route
+2. The message is sent to the Next.js API route along with conversation history (filtered to include only selected responses)
 3. The API route makes parallel requests to all configured AI models
-4. Each model generates a response
+4. Each model generates a response using the conversation context
 5. Each model evaluates all responses through a voting mechanism
 6. All responses and voting results are returned to the frontend
-7. The frontend displays the responses, highlighting the winner
+7. The frontend groups responses by conversation turn and displays them in a tabbed interface
+8. The winning response tab is active by default, but users can switch between tabs (only for the latest turn)
+9. Selected responses are tracked and locked for previous turns, maintaining conversation integrity
 
 ## Key Technical Decisions
 
@@ -36,18 +39,29 @@ API requests to all models are made concurrently using Promise.all to:
 - Allow for independent failure of individual models
 - Enable the voting mechanism to work with all available responses
 
-### 3. Client-Side Rendering
-The chat interface uses client-side rendering to:
+### 3. Client-Side Rendering and State Management
+The chat interface uses client-side rendering and state management to:
 - Allow for dynamic updates without full page refreshes
 - Enable real-time feedback during loading states
-- Maintain conversation state in the client
+- Maintain conversation state and tab selections in the client
+- Store conversation history in localStorage for persistence between sessions
 
 ### 4. Two-Phase Response Process
 The system uses a two-phase approach:
-1. **Response Generation**: All models generate responses to the user query
+1. **Response Generation**: All models generate responses to the user query using conversation context
 2. **Response Evaluation**: All models evaluate and vote on the quality of all responses
 
 This creates a meta-evaluation layer that leverages the "wisdom of the crowd" among AI models.
+
+### 5. Turn-Based Conversation Structure with Selection Tracking
+The conversation is organized into turns with a selection mechanism:
+- Each turn consists of a user message and corresponding AI responses
+- AI responses are grouped and displayed in a tabbed interface
+- Default active tab is the "winning" response for the latest turn
+- Users can switch between tabs for the most recent turn only
+- Selected responses are tracked with an `isSelected` property
+- Previous turn selections are locked and visually indicated
+- Only selected responses are included in the conversation history sent to AI models
 
 ## Design Patterns
 
@@ -79,22 +93,64 @@ The final response to the user is a composite of:
 - Individual model responses
 - Vote tallies
 - Winning response indicator
+- Tab selection state
+
+### 6. Observer Pattern
+The tab interface implements an observer-like pattern:
+- Tab selection state is observed by all tabs
+- Only the active tab displays its content
+- UI updates reactively when tab selection changes
+- Selection status is tracked and persisted
+
+### 7. State Machine Pattern
+The conversation history represents a state machine:
+- Each turn has specific states (user input, model responses, tab selection)
+- State transitions are triggered by user actions
+- History is persisted to survive page reloads
+- Previous turn selections are locked to maintain conversation integrity
+
+### 8. Selection History Pattern
+The conversation maintains a history of selected responses:
+- Each AI response has an `isSelected` flag to track user selection
+- The conversation history passed to AI models is filtered to only include selected responses
+- The API message conversion function organizes messages by turn and filters out non-selected responses
+- This pattern ensures conversation coherence while allowing exploration of different AI responses
 
 ## Component Relationships
 
 1. **Chat Component (Frontend)**:
-   - Manages user input
-   - Displays conversation history
-   - Shows loading states
-   - Renders model responses with appropriate styling
+   - Manages user input and form submission
+   - Displays conversation history organized by turns
+   - Shows loading states during API requests
+   - Handles tab selection and display
+   - Maintains state for active tabs and last turn ID
+   - Persists conversation history via localStorage
+   - Implements the selected response tracking mechanism
+   - Manages locking of previous turn selections
 
-2. **Chat API Route (Backend)**:
-   - Handles incoming user messages
+2. **Conversation Turn Component**:
+   - Groups user message with corresponding AI responses
+   - Provides tab navigation interface (interactive only for latest turn)
+   - Displays active tab content
+   - Shows model information and voting results
+   - Indicates selected responses with visual badges
+   - Applies disabled state to tabs in previous turns
+
+3. **Tab Interface**:
+   - Provides UI for switching between different model responses
+   - Highlights the winning response by default
+   - Shows visual indicators for each AI model
+   - Manages active tab state
+   - Displays selection status for previous turns
+   - Restricts interaction to the latest turn only
+
+4. **Chat API Route (Backend)**:
+   - Handles incoming user messages with filtered conversation history
    - Manages parallel API calls to AI providers
    - Implements the voting mechanism
-   - Returns structured response data
+   - Returns structured response data with all model responses and voting results
 
-3. **Model Clients (Backend)**:
+5. **Model Clients (Backend)**:
    - Handle specific API calls to each provider
    - Map provider-specific responses to a common format
    - Manage provider-specific error handling

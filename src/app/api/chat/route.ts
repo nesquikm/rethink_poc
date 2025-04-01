@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { message } = body;
+    const { message, history } = body;
 
     if (!message) {
       return NextResponse.json(
@@ -73,17 +73,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create messages array with system prompt for better context
-    const messages: ChatMessage[] = [
-      {
-        role: 'system',
-        content: 'You are a helpful assistant providing clear and concise answers.'
-      },
-      {
-        role: 'user',
-        content: message
-      }
-    ];
+    // Create messages array with conversation history or a default system prompt
+    let messages: ChatMessage[];
+
+    if (history && Array.isArray(history) && history.length > 0) {
+      // Use the provided history
+      messages = history as ChatMessage[];
+    } else {
+      // If no history, create a default context
+      messages = [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant providing clear and concise answers.'
+        },
+        {
+          role: 'user',
+          content: message
+        }
+      ];
+    }
 
     // Step 1: Get responses from all models in parallel
     const [gpt35Response, gpt4oMiniResponse, geminiResponse, claudeResponse] = await Promise.all([
