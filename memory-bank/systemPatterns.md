@@ -9,12 +9,13 @@ The Rethink AI POC follows a clean Next.js App Router architecture with a clear 
 - **React Components**: Client-side components for the chat interface
 - **TailwindCSS**: Utility-first CSS framework for styling
 - **Tabbed Interface**: Component system for displaying multiple AI responses
-- **Shared Model Definitions**: Client-side model configuration aligned with backend
+- **Shared Model Definitions**: Client-side model configuration aligned with backend through a common shared layer
 
 ### Backend
 - **Next.js API Routes**: Server-side API endpoints for handling AI model requests
 - **Centralized Model System**: Abstracted provider and model configuration
 - **OpenAI-Compatible Clients**: Unified client interface for different AI providers
+- **Shared Type System**: Common type definitions shared between frontend and backend
 
 ### Data Flow
 1. User inputs a message via the React-based Chat component
@@ -29,13 +30,13 @@ The Rethink AI POC follows a clean Next.js App Router architecture with a clear 
 
 ## Key Technical Decisions
 
-### 1. Centralized Model Configuration
-The application uses a centralized model and provider configuration system:
-- Server-side definitions in `src/app/api/chat/models.ts` define providers and models with their parameters
-- Client-side definitions in `src/app/api/models.ts` provide UI metadata for models
-- Both share common model IDs and structure for consistency
-- Adding a new model or provider requires changes to only one place
-- Environment variables are validated in a single location
+### 1. Shared Model Definitions
+The application uses a three-tier model configuration system:
+- **Shared core definitions** in `src/app/api/models-shared.ts` provide the single source of truth for model IDs, display names, and UI metadata
+- **Client-side model metadata** in `src/app/api/models.ts` derives UI-specific properties from the shared definitions
+- **Server-side model configurations** in `src/app/api/chat/models.ts` extend the shared definitions with API-specific details
+- This architecture eliminates duplication and ensures consistency between frontend and backend
+- Adding a new model requires modification of only the shared definitions file
 
 ### 2. OpenAI-compatible API Interfaces
 All AI providers are accessed through the OpenAI client, using compatible endpoints for non-OpenAI providers (Gemini and Claude). This approach:
@@ -142,9 +143,35 @@ The model and provider system implements a registry pattern:
 - UI components retrieve model information from the registry
 - API routes dynamically process all registered models
 
+### 10. Shared Type Pattern
+The shared model definitions implement a shared type pattern:
+- Common types are defined in a shared location
+- Client and server components derive from these shared types
+- Type consistency is maintained across the application
+- A single source of truth prevents type mismatches between client and server
+
 ## Component Relationships
 
-1. **Chat Component (Frontend)**:
+1. **Shared Model Definitions (Common)**:
+   - Provides the single source of truth for model IDs and basic properties
+   - Defines shared interfaces and types used by both client and server
+   - Contains core model data that is consistent across the application
+   - Ensures type safety through strictly defined model and provider IDs
+
+2. **Client-Side Model Configuration**:
+   - Imports and extends the shared model definitions with UI-specific properties
+   - Reformats model data for frontend consumption
+   - Offers utility functions for retrieving model information in the UI
+   - Re-exports shared types for use in components
+
+3. **Server-Side Model Configuration**:
+   - Extends shared model definitions with API-specific details
+   - Initializes provider clients with appropriate configurations
+   - Registers all available models with their parameters
+   - Provides utility functions for accessing clients and model information
+   - Validates required environment variables
+
+4. **Chat Component (Frontend)**:
    - Manages user input and form submission
    - Displays conversation history organized by turns
    - Shows loading states during API requests
@@ -155,19 +182,7 @@ The model and provider system implements a registry pattern:
    - Manages locking of previous turn selections
    - Dynamically processes all model responses using shared model definitions
 
-2. **Models Configuration (Shared)**:
-   - Provides type definitions for models and providers
-   - Contains UI metadata for models (colors, display names)
-   - Ensures consistency between frontend and backend model handling
-   - Offers utility functions for retrieving model information
-
-3. **Models Configuration (Backend)**:
-   - Initializes provider clients with appropriate configurations
-   - Registers all available models with their parameters
-   - Provides utility functions for accessing clients and model information
-   - Validates required environment variables
-
-4. **Conversation Turn Component**:
+5. **Conversation Turn Component**:
    - Groups user message with corresponding AI responses
    - Provides tab navigation interface (interactive only for latest turn)
    - Displays active tab content
@@ -175,7 +190,7 @@ The model and provider system implements a registry pattern:
    - Indicates selected responses with visual badges
    - Applies disabled state to tabs in previous turns
 
-5. **Tab Interface**:
+6. **Tab Interface**:
    - Provides UI for switching between different model responses
    - Highlights the winning response by default
    - Shows visual indicators for each AI model
@@ -183,7 +198,7 @@ The model and provider system implements a registry pattern:
    - Displays selection status for previous turns
    - Restricts interaction to the latest turn only
 
-6. **Chat API Route (Backend)**:
+7. **Chat API Route (Backend)**:
    - Handles incoming user messages with filtered conversation history
    - Manages parallel API calls to AI providers using the model configuration
    - Implements the voting mechanism

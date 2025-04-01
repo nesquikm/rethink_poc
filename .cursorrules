@@ -27,11 +27,12 @@
 - System message is always included at the beginning of the conversation
 
 ### Model Configuration
-- Models are defined in a central location in the backend (`src/app/api/chat/models.ts`)
-- UI metadata for models is shared in a frontend file (`src/app/api/models.ts`)
-- Adding a new model requires only updating the models array in one place
+- Shared model definitions are in `models-shared.ts` (core model data and types)
+- Client-side model metadata is in `api/models.ts` (derived from shared definitions)
+- Server-side model configurations are in `api/chat/models.ts` (extends shared with API details)
+- Adding a new model requires only updating the shared definitions
 - Model/provider type definitions are shared between frontend and backend
-- API routes dynamically handle all models defined in the configuration
+- Type-safe provider IDs are defined as a union type in the shared definitions
 
 ## UI Standards
 
@@ -65,8 +66,9 @@
 ### Component File Structure
 - Chat.tsx: Main chat interface and state management
 - route.ts (in api/chat/): API endpoint for model interactions
-- models.ts (in api/chat/): Server-side model and provider configuration
-- models.ts (in api/): Client-side model metadata for UI
+- models-shared.ts (in api/): Shared model definitions for client and server
+- models.ts (in api/): Client-side model metadata derived from shared definitions
+- models.ts (in api/chat/): Server-side model configurations extending shared definitions
 
 ### API Response Structure
 - Each model's response is included in the response object
@@ -74,11 +76,14 @@
 - The winning model name is included
 
 ### Type Definitions
+- `SharedModelDefinition` defines common model properties in the shared layer
+- `ModelId` type defines all supported model names in the shared layer
+- `ProviderId` type defines all supported provider IDs in the shared layer
+- `ModelUIData` extends shared definitions with UI-specific properties
+- `Model` extends shared definitions with API-specific properties
+- `Provider` defines provider configuration for the server
+- `ActiveTabsState` maps turn IDs to selected model IDs
 - `ChatMessage` includes role, content, provider, turnId, and isSelected
-- `ModelId` type includes all supported model names
-- `ActiveTabsState` maps turn IDs to selected AI providers
-- `Model` interface defines the structure of model configuration
-- `Provider` interface defines the structure of provider configuration
 
 ## Critical Implementation Notes
 
@@ -95,8 +100,8 @@
 
 ### Dynamic Response Handling
 - The Chat component must dynamically handle responses based on the models configuration
-- Response processing should use the `models` array rather than hardcoded model names
-- New models should be automatically displayed when added to the configuration
+- Response processing should use the shared model array rather than hardcoded model names
+- New models should be automatically displayed when added to the shared definitions
 
 ### Error Handling
 - API calls should handle specific errors from each provider
@@ -110,6 +115,11 @@
 - Parallel API calls should have reasonable timeouts
 
 ## Future Implementation Notes
+
+### Import Error Resolution
+- TypeScript module import errors need to be fixed
+- Consider relocating shared files to a common directory for better imports
+- Investigate import path resolution in Next.js for improved TypeScript support
 
 ### MCP Integration
 - Model Context Protocol could be integrated to add web content access

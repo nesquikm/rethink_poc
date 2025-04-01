@@ -1,18 +1,21 @@
 import { OpenAI } from 'openai';
+import {
+  ModelId,
+  SHARED_MODELS,
+  ProviderId,
+  SharedModelDefinition
+} from '../models-shared';
 
 // Define a common interface for all providers
 export interface Provider {
-  id: string;
+  id: ProviderId;
   name: string;
   client: OpenAI;
   color: string; // For UI color coding
 }
 
-// Define a common interface for all models
-export interface Model {
-  id: string;
-  displayName: string;
-  provider: string;
+// Define a common interface for all models that extends the shared definition
+export interface Model extends SharedModelDefinition {
   apiModelName: string;
   defaultParams?: {
     temperature?: number;
@@ -51,56 +54,57 @@ export const providers: Provider[] = [
   }
 ];
 
-// Define available models
-export const models: Model[] = [
-  {
-    id: 'gpt-3.5-turbo',
-    displayName: 'GPT-3.5',
-    provider: 'openai',
-    apiModelName: 'gpt-3.5-turbo',
-    defaultParams: {
-      temperature: 0.7,
-      max_tokens: 500
-    }
-  },
-  {
-    id: 'gpt-4o-mini',
-    displayName: 'GPT-4o mini',
-    provider: 'openai',
-    apiModelName: 'gpt-4o-mini',
-    defaultParams: {
-      temperature: 0.7,
-      max_tokens: 500
-    }
-  },
-  {
-    id: 'gemini',
-    displayName: 'Gemini',
-    provider: 'gemini',
-    apiModelName: 'gemini-2.0-flash',
-    defaultParams: {
-      temperature: 0.7,
-      max_tokens: 500
-    }
-  },
-  {
-    id: 'claude',
-    displayName: 'Claude',
-    provider: 'anthropic',
-    apiModelName: 'claude-3-opus-20240229',
-    defaultParams: {
-      temperature: 0.7,
-      max_tokens: 500
-    }
+// Define available models - extends the shared models with API-specific details
+export const models: Model[] = SHARED_MODELS.map((sharedModel: SharedModelDefinition) => {
+  // Add API-specific details based on the model ID
+  switch(sharedModel.id) {
+    case 'gpt-3.5-turbo':
+      return {
+        ...sharedModel,
+        apiModelName: 'gpt-3.5-turbo',
+        defaultParams: {
+          temperature: 0.7,
+          max_tokens: 500
+        }
+      };
+    case 'gpt-4o-mini':
+      return {
+        ...sharedModel,
+        apiModelName: 'gpt-4o-mini',
+        defaultParams: {
+          temperature: 0.7,
+          max_tokens: 500
+        }
+      };
+    case 'gemini':
+      return {
+        ...sharedModel,
+        apiModelName: 'gemini-2.0-flash',
+        defaultParams: {
+          temperature: 0.7,
+          max_tokens: 500
+        }
+      };
+    case 'claude':
+      return {
+        ...sharedModel,
+        apiModelName: 'claude-3-opus-20240229',
+        defaultParams: {
+          temperature: 0.7,
+          max_tokens: 500
+        }
+      };
+    default:
+      throw new Error(`Unknown model ID: ${sharedModel.id}`);
   }
-];
+});
 
 // Utility functions
 export function getModelById(id: string): Model | undefined {
   return models.find(model => model.id === id);
 }
 
-export function getProviderById(id: string): Provider | undefined {
+export function getProviderById(id: ProviderId): Provider | undefined {
   return providers.find(provider => provider.id === id);
 }
 
@@ -112,9 +116,8 @@ export function getClientForModel(modelId: string): OpenAI | undefined {
   return provider?.client;
 }
 
-// Get all model IDs (for typing)
-export const MODEL_IDS = models.map(model => model.id);
-export type ModelId = 'gpt-3.5-turbo' | 'gpt-4o-mini' | 'gemini' | 'claude';
+// Re-export model IDs for consistency
+export type { ModelId };
 
 // Validate required environment variables
 export function validateEnvVariables(): string[] {
