@@ -38,6 +38,14 @@ The project is currently focused on enhancing the existing multi-model AI chat a
    - Improved error reporting for missing API keys
    - Added graceful degradation when model clients are unavailable
 
+5. **Markdown Rendering Implementation**:
+   - Added support for rendering formatted text from LLMs using ReactMarkdown
+   - Implemented code block syntax highlighting and proper formatting
+   - Enhanced the styling of lists, tables, blockquotes, and other markdown elements
+   - Added custom styling for user messages with markdown content
+   - Updated system prompt to encourage models to use markdown formatting when appropriate
+   - Ensured proper spacing and typography for all markdown elements
+
 ## Next Steps
 
 ### Immediate Priorities

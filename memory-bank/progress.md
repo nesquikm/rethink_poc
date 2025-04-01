@@ -18,6 +18,7 @@
 - ✅ Locking of older message selections to maintain history integrity
 - ✅ Centralized model and provider configuration system
 - ✅ Dynamic model handling in both frontend and backend
+- ✅ Markdown rendering for formatted text and code blocks
 
 ### UI/UX
 - ✅ Responsive design for different screen sizes
@@ -34,6 +35,7 @@
 - ✅ Disabled state for tabs in previous conversation turns
 - ✅ "SELECTED" badge for chosen responses in conversation history
 - ✅ Fixed width layout for consistent user experience
+- ✅ Rich text formatting with markdown support for code, tables, and lists
 
 ### Architecture
 - ✅ Centralized model configuration in backend
@@ -154,6 +156,7 @@ The application is currently in a **functional state with a shared model definit
 - ✅ Selected response tracking with locked history
 - ✅ Centralized model and provider system
 - ✅ Shared model definition system
+- ✅ Markdown rendering for formatted text and code blocks
 
 ### Current Milestone
 🚀 **Architecture Refinement & Import Error Resolution**
